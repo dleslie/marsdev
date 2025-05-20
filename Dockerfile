@@ -23,6 +23,21 @@ FROM build_env as build_m68k_toolchain
 
 RUN make m68k-toolchain-newlib
 
+FROM build_m68k_toolchain as build_m68k_zig
+
+ARG ZIG_VERSION="0.11.0"
+ARG ZIG_TARGET_ARCH="x86_64"
+ARG ZIG_TARGET_OS="linux"
+
+RUN apt update && \
+    apt install -y xz-utils && \
+    wget "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_TARGET_OS}-${ZIG_TARGET_ARCH}-${ZIG_VERSION}.tar.xz" && \
+    tar -xf zig-${ZIG_TARGET_OS}-${ZIG_TARGET_ARCH}-${ZIG_VERSION}.tar.xz && \
+    mv zig-${ZIG_TARGET_OS}-${ZIG_TARGET_ARCH}-${ZIG_VERSION} /opt/zig && \
+    ln -s /opt/zig/zig /usr/local/bin/zig && \
+    rm zig-${ZIG_TARGET_OS}-${ZIG_TARGET_ARCH}-${ZIG_VERSION}.tar.xz && \
+    apt clean
+
 FROM build_m68k_toolchain as build_sh_toolchain
 
 RUN make sh-toolchain-newlib

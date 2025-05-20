@@ -23,6 +23,22 @@ m68k-toolchain: m68k-gcc-toolchain
 
 m68k-toolchain-newlib: m68k-gcc-toolchain
 	$(MAKE) -C $< all install INSTALL_DIR=$(MARS_BUILD_DIR)/m68k-elf
+	@if [ -f /usr/local/bin/zig ]; then \
+		echo "Including Zig in m68k toolchain..."; \
+		mkdir -p $(MARS_BUILD_DIR)/m68k-elf/bin; \
+		cp /usr/local/bin/zig $(MARS_BUILD_DIR)/m68k-elf/bin/zig; \
+		echo "Testing Zig compilation for m68k..."; \
+		mkdir -p $(MARS_BUILD_DIR)/zig_test_output; \
+		/usr/local/bin/zig build-exe -target m68k-freestanding -mcpu motorola68000 \
+			$(shell pwd)/tests/zig_m68k_test/test_zig_m68k.zig \
+			--cache-dir $(MARS_BUILD_DIR)/zig_test_output/zig-cache \
+			--global-cache-dir $(MARS_BUILD_DIR)/zig_test_output/zig-global-cache \
+			-O ReleaseSmall --name test_m68k_zig_program && \
+		echo "Zig m68k test compilation successful." && \
+		rm -f test_m68k_zig_program; \
+	else \
+		echo "Warning: Zig not found at /usr/local/bin/zig, not including in m68k toolchain or testing."; \
+	fi
 
 sh-toolchain: sh-gcc-toolchain
 	$(MAKE) -C $< without-newlib install INSTALL_DIR=$(MARS_BUILD_DIR)/sh-elf
@@ -70,6 +86,7 @@ install:
 	@echo "#!/bin/sh" > $(MARS_INSTALL_DIR)/mars.sh
 	@echo "export MARSDEV=$(MARS_INSTALL_DIR)" >> $(MARS_INSTALL_DIR)/mars.sh
 	@echo "export GDK=$(MARS_INSTALL_DIR)/m68k-elf" >> $(MARS_INSTALL_DIR)/mars.sh
+	@echo "# The m68k-elf/bin directory includes the m68k GCC toolchain and Zig (if installed)" >> $(MARS_INSTALL_DIR)/mars.sh
 	@echo "export PATH=\"$$`echo PATH`:$(MARS_INSTALL_DIR)/m68k-elf/bin\"" >> $(MARS_INSTALL_DIR)/mars.sh
 	@echo "export PATH=\"$$`echo PATH`:$(MARS_INSTALL_DIR)/sh-elf/bin\"" >> $(MARS_INSTALL_DIR)/mars.sh
 	@chmod +x $(MARS_INSTALL_DIR)/mars.sh
