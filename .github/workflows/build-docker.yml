@@ -7,7 +7,7 @@ on:
 jobs:
   build_docker_images:
     name: Build Docker Images
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -27,4 +27,4 @@ jobs:
         with:
           contex: .
           push: true
-          tags: dleslie/marsdev:latest
+          tags: ${{ vars.DOCKER_REPO }}
