@@ -20,31 +20,32 @@ SJASM     = $(BIN)/sjasm
 SJBRANCH ?= v0.39
 
 SGDK_VER ?= __UNSET__
-SGDK_REV ?= 335af3fc5b95141c53b58c67093bb298d3d46958
+SGDK_REV ?= cb114acadc454440fcddd616d9a7dd5a693b1b13
 SGDK_OPT ?= default
 
 # Use homebrew's gettext on macOS, for autopoint
 ifeq ($(OS),Windows_NT)
 else
-	UNAME_S := $(shell uname -s)
-	ifeq ($(UNAME_S),Darwin)
-		export PATH := /usr/local/opt/gettext/bin:$(PATH)
-	endif
+  UNAME_S := $(shell uname -s)
+  ifeq ($(UNAME_S),Darwin)
+    export PATH := /usr/local/opt/gettext/bin:$(PATH)
+  endif
 endif
 
 # OSX sed fails without the '', and GNU fails with, coolbeans
-SED_FIX=
-ifeq ($(shell uname -s),Darwin)
-	SED_FIX=''
+ifeq ($(shell uname),Darwin)
+  SEDI := -i '.bak'
+else
+  SEDI := -i'.bak'
 endif
 
 .PHONY: all tools libmd samples clean
 
-all: $(SJASM) SGDK tools libmd
+all: libmd
 
 tools: $(BINTOS) $(RESCOMP) $(XGMTOOL) $(XGM2TOOL) $(XGMROOMBUILDER) $(SIZEBND) $(LZ4W) $(APJ)
 
-libmd: SGDK
+libmd: SGDK $(SJASM) tools
 	# Copy SGDK files to toolchain
 	cp -rf SGDK/inc $(GDK)/
 	cp -rf SGDK/res $(GDK)/
@@ -55,12 +56,12 @@ libmd: SGDK
 	cp -f SGDK/md.ld $(GDK)/
 	# release & debug
 	cp -f config-$(SGDK_OPT).h $(INC)/config.h
-	$(MAKE) -C $(GDK) -f makelib.gen cleanrelease
+	$(MAKE) -C $(GDK) -f makelib.gen clean-release
 	$(MAKE) -C $(GDK) -f makelib.gen release
-	$(MAKE) -C $(GDK) -f makelib.gen cleandebug
+	$(MAKE) -C $(GDK) -f makelib.gen clean-debug
 	$(MAKE) -C $(GDK) -f makelib.gen debug
 	# Clean intermediate files only
-	$(MAKE) -C $(GDK) -f makelib.gen cleanobj cleandep cleanlst
+	$(MAKE) -C $(GDK) -f makelib.gen clean-task
 
 # SGDK_VER takes precidence over SGDK_REV
 SGDK:
@@ -74,6 +75,11 @@ SGDK:
 	mv -f SGDK/common.mk SGDK/common.mk.bak
 	cp -f common.mk SGDK/common.mk
 	cp -f SGDK/inc/config.h config-default.h
+	# Fix compile error: conflicting types
+	sed $(SEDI) 's/const bool loop/const u8 loop/g' SGDK/inc/snd/pcm/snd_pcm.h
+	sed $(SEDI) 's/const bool loop/const u8 loop/g' SGDK/inc/snd/pcm/snd_pcm4.h
+	# Fix parallel build race: resource headers must be generated before C compilation
+	echo '$$(addprefix $$(OUT_DIR)/, $$(SRC_LIB_C:.c=.o)): | $$(addprefix $$(OUT_DIR)/, $$(RES_LIB_RES:.res=.o))' >> SGDK/makelib.gen
 
 # SGDK Samples
 # If a sample is commented, it fails to build (out of date or special hardware required)
@@ -84,10 +90,9 @@ $(GDK)/lib/libmd.a: libmd
 samples: SGDK $(GDK)/lib/libmd.a
 	cd SGDK/sample/basics/hello-world && make -f $(GDK)/makefile.gen
 	cd SGDK/sample/basics/image && make -f $(GDK)/makefile.gen
-	cd SGDK/sample/bench && make -f $(GDK)/makefile.gen
-	cd 'SGDK/sample/bitmap/cube 3D' && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/benchmark && make -f $(GDK)/makefile.gen
+	cd 'SGDK/sample/bitmap/cube-3D' && make -f $(GDK)/makefile.gen
 	cd SGDK/sample/bitmap/partic && make -f $(GDK)/makefile.gen
-	#cd SGDK/sample/console && make -f $(GDK)/makefile.gen
 	cd SGDK/sample/demo/bad-apple && make -f $(GDK)/makefile.gen
 	cd SGDK/sample/demo/starfield-donut && make -f $(GDK)/makefile.gen
 	#cd SGDK/sample/flash-save && make -f $(GDK)/makefile.gen
@@ -97,11 +102,12 @@ samples: SGDK $(GDK)/lib/libmd.a
 	cd SGDK/sample/fx/scroll/linescroll && make -f $(GDK)/makefile.gen
 	cd SGDK/sample/joy-test && make -f $(GDK)/makefile.gen
 	#cd SGDK/sample/megawifi && make -f $(GDK)/makefile.gen
-	cd SGDK/sample/multitasking && make -f $(GDK)/makefile.gen
-	#cd SGDK/sample/platformer && make -f $(GDK)/makefile.gen
-	cd SGDK/sample/sonic && make -f $(GDK)/makefile.gen
-	cd SGDK/sample/sound && make -f $(GDK)/makefile.gen
-	#cd SGDK/sample/xgm-player && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/sys/multitasking && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/sys/console && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/game/sonic && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/game/platformer && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/snd/sound-test && make -f $(GDK)/makefile.gen
+	cd SGDK/sample/snd/xgm-player && make -f $(GDK)/makefile.gen
 
 # Tools
 
